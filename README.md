@@ -27,6 +27,11 @@ it touches.
 | Time structure | Season progression **and** a fixed infrastructure decay calendar |
 | Melee | Heavy, committal, charge-and-release, grapple-based zombie attacks, shove as the primary defence |
 | Progression | Learn-by-doing proficiency with a low ceiling. No skill trees, no perks |
+| Art style | Stylized realism: correct proportions and materials, simplified detail, restricted palette. Readable and cold, not photoreal |
+| Asset sourcing | Licensed packs (commercial-use licences only) for the world; made by hand for the zombie, the first-person arms, held items, trim sheets, decals and the named shelters |
+| Zombie faces | Not an asset in the slice. The fungal growth layer, hair, hoods and shadow cover the face. No facial rig |
+| Gore | Heavy but concrete: persistent blood decals, wounds, broken limbs, pre-authored break states. No procedural fracture |
+| Zombie variants | One mesh, one skeleton, two blendshapes, three locomotion sets. Crawler is an animation set; Bloated is a blendshape |
 
 ## Document index
 

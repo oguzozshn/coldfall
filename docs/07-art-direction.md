@@ -180,7 +180,8 @@ wetness, and dirt, which is how the game reports wound and wetness state without
 [08](08-audio-and-ui.md), 8.5).
 
 ### Zombies
-One base mesh, one skeleton, one animation set. Variation comes from:
+One base mesh, one skeleton, and one locomotion set per movement mode (see **Variant handling**
+below). Variation comes from:
 - **Four clothing sets** (work, casual, outdoor, uniform) as swappable meshes on the same rig.
 - **A fungal growth parameter (0-1)** blending a `#9FB08A` sporing layer over skin and clothing
   through a material property. This is the readability system: low growth means **Fresh**, which
@@ -190,6 +191,54 @@ One base mesh, one skeleton, one animation set. Variation comes from:
 
 Silhouette requirement: a zombie must be distinguishable from a standing human prop, a scarecrow,
 and a coat on a hook at 25 m in fog. If it is not, the pose and the growth layer are wrong.
+
+### Faces
+**The face is deliberately not an asset in the vertical slice.** The fungal growth layer, hair,
+hoods, and shadow cover most of it. No blendshapes, no jaw animation, no eye tracking, no unique
+face textures. Three reasons this is the right call and not only the cheap one:
+
+1. The growth parameter already does this work. It is the Fresh/old tell *and* the face solution,
+   so one material property carries both the readability system and the horror.
+2. A head that reads as a shape rather than as a person is harder to dismiss as a video-game
+   enemy. Withholding the face is the horror, not a compromise on it.
+3. Cost: one head mesh, one material, zero facial rigging.
+
+Revisit after the slice only if close-range grapples ([04](04-zombies-and-combat.md), 4.7) feel
+flat without a face. If they do, the cheapest fix is a single open-jaw pose on the existing
+skeleton, not a facial rig.
+
+### Gore and damage
+**Heavy but concrete.** Blood decals, visible wounds, broken limbs, and corpses that persist
+([04](04-zombies-and-combat.md), 4.9). Dismemberment is real, but it comes from **pre-authored
+break states, never procedural fracture.** The design already requires limbs that snap on a
+Frozen zombie (04, 4.2) and a Bloated zombie that bursts (04, 4.6); authored states deliver both
+at a fixed, known cost.
+
+Rules:
+- **Three authored break points per limb chain.** A broken limb swaps to a capped stump mesh plus
+  a decal, never an open simulated cross-section.
+- **Blood is a persistent decal, not a particle shower.** The trail a bleeding player leaves is
+  gameplay information the scent grid already reads (04, 4.3), so it must survive on the floor.
+- **Blood values are palette-bound:** `#7A2B22` on autumn ground, `#6E2420` on snow, so it reads
+  against high-value winter terrain (7.2, 7.3).
+- **Forbidden:** procedural fracture, flesh-and-bone layer meshes, blood fluid simulation. Each
+  of them breaks the 12,000-triangle zombie budget (7.7) and law 1 of 7.1.
+
+### Variant handling
+The four variants in [04](04-zombies-and-combat.md), 4.6 all come from the one base mesh. No
+additional variant meshes exist.
+
+| Variant | How it is built |
+|---|---|
+| **Walker** | Base mesh, upright locomotion set |
+| **Fresh** | Base mesh, growth parameter near 0, intact clothing set, upright locomotion |
+| **Crawler** | Base mesh and skeleton, separate prone locomotion set, leg IK chain disabled |
+| **Bloated** | Base mesh plus a swelling blendshape (torso and limb girth), slow locomotion set, burst break state |
+
+Total character cost for the slice: **one mesh, one skeleton, two blendshapes** (swelling, and a
+slump used for corpses) **and three locomotion sets** (upright, prone, slow). This keeps the
+clothing-set multiplication at four rather than twelve, which is the whole reason the single-mesh
+rule exists.
 
 ## 7.10 Post-processing
 
@@ -218,3 +267,40 @@ information (see [08](08-audio-and-ui.md)). Practical consequences: surfaces mus
 what they sound like (wet leaves, gravel, floorboards, corrugated steel, snow), every door must
 read as openable or sealed at a glance, and sightline-blocking geometry must be visually obvious
 so the player can plan around what they cannot see.
+
+## 7.12 Asset sourcing and the production split
+
+**Licensed packs for the world; made by hand for the things the player studies.** A solo
+developer cannot author a forty-interior region and also hold the consistency laws in 7.1, so the
+split is fixed rather than decided per asset:
+
+| Made by hand | Licensed packs or kit-based |
+|---|---|
+| The zombie: mesh, skeleton, blendshapes, locomotion sets | Trees, rocks, terrain and ground textures |
+| First-person arms and every held item | Vehicles, road furniture, fences, utility poles |
+| The three master trim sheets (7.8) | The modular architecture base kit |
+| The four candidate shelters and the church ([05](05-world-and-map.md), 5.4) | Generic household, shop and garage clutter |
+| Every decal set | Sky, cloud and weather particle assets |
+| All lighting, LUTs and post-processing setup | Audio (see [08](08-audio-and-ui.md)) |
+
+### The five rules that make a mixed library look like one game
+
+1. **Licence first, asset second.** Only licences permitting commercial use are accepted, even
+   while this is a hobby project, because re-sourcing an asset later costs more than choosing
+   correctly now. Attribution is appended to `CREDITS.md` as each asset is imported, never
+   reconstructed afterwards.
+2. **Everything is re-materialled.** No pack keeps its own textures. Imported meshes are
+   re-assigned to this project's trim sheets and material library; anything that cannot be
+   re-assigned is rejected rather than kept as an exception. This single rule is what makes the
+   mixed sources invisible.
+3. **Albedo is clamped on import** to the 20-70% luminance band (7.1) as a batch step, not a
+   per-asset judgement call.
+4. **The 7.7 budgets apply to imported assets too.** A 40,000-triangle free barrel is not free.
+5. **No imported characters or creatures.** The zombie and the arms are the only things the
+   player ever studies at close range, so they are the only places where fidelity is worth paying
+   for in time. Everything a player glances at once may come from a pack.
+
+### What this changes in the schedule
+Art stops being the critical path for the world and becomes the critical path for exactly two
+assets. The milestone plan in [10](10-roadmap.md) must therefore front-load the zombie and the
+arms, and may greybox the region with kit pieces until they are done.
