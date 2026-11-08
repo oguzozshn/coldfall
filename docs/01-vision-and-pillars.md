@@ -94,8 +94,9 @@ The fiction does three jobs and no more:
    around mass-corpse sites, masks, filters, and a reason that burning bodies is worth the
    smoke plume. See [05](05-world-and-map.md), section 5.2.
 
-There is no plot, no cause to discover, no cure to invent, and no rescue. The outbreak is
-weather with teeth.
+There is no plot, no cause to discover, nothing to research or build towards, and no rescue. The
+antifungal that clears a bite is a drug that already existed, sitting on four shelves in the
+valley; it is loot, not a goal. The outbreak is weather with teeth.
 
 ## 1.6 Player fantasy and emotional arc
 
