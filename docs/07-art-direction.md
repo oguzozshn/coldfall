@@ -4,6 +4,26 @@ Stylized realism: correct proportions and materials, simplified detail, restrict
 The target is "readable and cold", not "photoreal". A solo developer cannot win on fidelity and
 can win on consistency, so every rule below is a consistency rule.
 
+## 7.0 Primary visual reference: The Long Dark
+
+**The Long Dark is the primary visual reference, but only for the parts of its language that
+survive the stylized-realism rule.** It is listed first because every judgement call below should
+be settled by asking what The Long Dark would do, not what a photoreal survival game would do.
+
+| Taken from The Long Dark | Deliberately not taken |
+|---|---|
+| Silhouette-first readability: a shape is identifiable before its detail is | Hand-painted, visible brush-stroke textures |
+| Restricted-palette discipline, held strictly per season | Saturated skies and high-chroma sunsets |
+| Atmosphere as the primary depth tool rather than detail density | Cel-like or flattened lighting |
+| Light carrying the emotion: a lamp is an event, not illumination | Exaggerated proportions and simplified forms |
+| Empty, calm, uncluttered compositions. Negative space is content | Outlines, posterization or any visible stylization filter |
+
+The line that resolves every conflict: **proportions and materials stay grounded.** A chair reads
+as a real chair and a crowbar reads as steel. The stylization is achieved by *removing* — less
+detail, a narrower palette, more fog — never by adding an effect on top. Anything that would make
+the world read as illustrated rather than as simplified is out, however much it resembles the
+reference.
+
 ## 7.1 The three visual laws
 
 1. **Value before colour.** A greyscale screenshot must still read: where the walkable floor is,
