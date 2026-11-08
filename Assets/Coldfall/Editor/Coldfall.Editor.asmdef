@@ -1,0 +1,25 @@
+{
+    "name": "Coldfall.Editor",
+    "rootNamespace": "Coldfall.Editor",
+    "references": [
+        "Coldfall.Data",
+        "Coldfall.Sim",
+        "Coldfall.World",
+        "Coldfall.Agents",
+        "Coldfall.Player",
+        "Coldfall.Presentation",
+        "Unity.RenderPipelines.Core.Runtime",
+        "Unity.RenderPipelines.Universal.Runtime"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
