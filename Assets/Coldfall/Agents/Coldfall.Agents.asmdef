@@ -1,0 +1,21 @@
+{
+    "name": "Coldfall.Agents",
+    "rootNamespace": "Coldfall.Agents",
+    "references": [
+        "Coldfall.Data",
+        "Coldfall.Sim",
+        "Coldfall.World",
+        "Unity.Burst",
+        "Unity.Collections",
+        "Unity.Mathematics"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

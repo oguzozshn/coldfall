@@ -1,0 +1,21 @@
+{
+    "name": "Coldfall.Presentation",
+    "rootNamespace": "Coldfall.Presentation",
+    "references": [
+        "Coldfall.Data",
+        "Coldfall.Sim",
+        "Coldfall.World",
+        "Coldfall.Agents",
+        "Coldfall.Player",
+        "Unity.RenderPipelines.Universal.Runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
