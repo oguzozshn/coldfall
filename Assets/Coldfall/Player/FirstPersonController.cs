@@ -121,6 +121,27 @@ namespace Coldfall.Player
             _lastFixedTime = Time.time;
         }
 
+        private void OnEnable()
+        {
+            CaptureCursor(true);
+        }
+
+        private void OnDisable()
+        {
+            CaptureCursor(false);
+        }
+
+        /// <summary>
+        /// Locks the cursor to the window and hides it, or releases it. Without this the mouse
+        /// escapes the view and first-person look is untestable; with it, Escape has to give the
+        /// cursor back or the editor becomes unusable.
+        /// </summary>
+        private static void CaptureCursor(bool captured)
+        {
+            Cursor.lockState = captured ? CursorLockMode.Locked : CursorLockMode.None;
+            Cursor.visible = !captured;
+        }
+
         private void OnValidate()
         {
             crouchingHeight = Mathf.Min(crouchingHeight, standingHeight);
@@ -135,7 +156,14 @@ namespace Coldfall.Player
                 return;
             }
 
-            var look = _input.Look;
+            if (_input.ReleaseCursorPressed)
+            {
+                CaptureCursor(Cursor.lockState != CursorLockMode.Locked);
+            }
+
+            // Looking only while captured, so clicking back into the window does not snap the
+            // view by the distance the cursor travelled outside it.
+            var look = Cursor.lockState == CursorLockMode.Locked ? _input.Look : Vector2.zero;
             _yaw += look.x;
             _pitch = Mathf.Clamp(_pitch - look.y, minPitch, maxPitch);
 

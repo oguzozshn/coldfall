@@ -26,5 +26,11 @@ namespace Coldfall.Player.Input
 
         /// <summary>True on the frame the vault key was pressed.</summary>
         bool VaultPressed { get; }
+
+        /// <summary>
+        /// True on the frame the player asked for the mouse cursor back. Not a game action: it
+        /// exists so the editor stays usable while the view has the cursor captured.
+        /// </summary>
+        bool ReleaseCursorPressed { get; }
     }
 }
