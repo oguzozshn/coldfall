@@ -131,28 +131,19 @@ namespace Coldfall.Sim
         /// <param name="shelter">How sheltered they are, 0 to 1.</param>
         /// <param name="radiantHeat">Radiant heat from a nearby fire.</param>
         /// <param name="exertion">How hard they are working, 0 to 1.</param>
-        public WetnessConditions WetnessFor(float shelter = 0f, float radiantHeat = 0f, float exertion = 0f)
+        public WetnessConditions WetnessFor(
+            float shelter = 0f, float radiantHeat = 0f, float exertion = 0f,
+            bool indoors = false, float clothingBulk = 0f)
         {
-            var definition = Definition;
-
-            // Dry snow brushes off; it wets far more slowly than rain of the same intensity.
-            // Wet snow is the nastiest state in the winter table precisely because it does not.
-            var soaking = definition.Precipitation switch
-            {
-                PrecipitationKind.Rain => definition.PrecipitationIntensity,
-                PrecipitationKind.WetSnow => definition.PrecipitationIntensity,
-                PrecipitationKind.DrySnow => definition.PrecipitationIntensity * 0.15f,
-                PrecipitationKind.Fog => definition.PrecipitationIntensity * 0.5f,
-                _ => 0f,
-            };
-
             return new WetnessConditions
             {
-                Precipitation = soaking,
+                SoakPerHour = Definition.SoakPerHour,
                 Shelter = Clamp01(shelter),
                 RadiantHeat = radiantHeat,
                 AmbientCelsius = AmbientCelsius,
+                IsIndoors = indoors,
                 Exertion = exertion,
+                ClothingBulk = clothingBulk,
             };
         }
 

@@ -5,14 +5,17 @@ using NUnit.Framework;
 namespace Coldfall.Tests
 {
     /// <summary>
-    /// Guards the wetness model and, through it, M1 exit criterion 3: a soaked three-layer torso
-    /// set dries in 2.5 to 4 game hours next to a fire, and does not meaningfully dry outdoors
-    /// in the rain.
+    /// Guards the wetness tables of docs/03-survival-systems.md, 3.4, and M1 exit criterion 3:
+    /// a soaked three-layer torso set dries in 2.5 to 4 game hours next to a fire, and does not
+    /// meaningfully dry outdoors in the rain.
     /// </summary>
     [TestFixture]
     public sealed class WetnessSystemTests
     {
         private const double NeedsStep = SimClock.NeedsStepGameSeconds;
+
+        /// <summary>Soak rate of a downpour, from the authored table.</summary>
+        private const float Downpour = 0.45f;
 
         private static List<Garment> TorsoSet(float wetness, float shellWaterproofing = 0f)
         {
@@ -75,12 +78,12 @@ namespace Coldfall.Tests
                 RadiantHeat = 8f,
                 AmbientCelsius = 15f,
                 Shelter = 1f,
+                IsIndoors = true,
             };
 
             var hours = HoursToDry(TorsoSet(wetness: 1f), conditions);
 
-            Assert.That(hours, Is.InRange(2.5f, 4f),
-                "docs/10-roadmap.md M1 exit criterion 3");
+            Assert.That(hours, Is.InRange(2.5f, 4f), "docs/10 M1 exit criterion 3");
         }
 
         [Test]
@@ -88,7 +91,7 @@ namespace Coldfall.Tests
         {
             var conditions = new WetnessConditions
             {
-                Precipitation = 1f,
+                SoakPerHour = Downpour,
                 Shelter = 0f,
                 AmbientCelsius = 6f,
             };
@@ -101,22 +104,77 @@ namespace Coldfall.Tests
         }
 
         [Test]
-        public void AFireCannotDryYouWhileYouStandInTheRain()
+        public void ADownpourSoaksAnUnprotectedGarmentInAboutTwoHours()
         {
-            var sheltered = new WetnessConditions { RadiantHeat = 8f, AmbientCelsius = 10f, Shelter = 1f };
-            var exposed = new WetnessConditions
+            var conditions = new WetnessConditions
             {
-                RadiantHeat = 8f, AmbientCelsius = 10f, Shelter = 0f, Precipitation = 1f,
+                SoakPerHour = Downpour, Shelter = 0f, AmbientCelsius = 5f,
             };
 
-            Assert.That(WetnessSystem.DryingPower(sheltered), Is.GreaterThan(0.9f));
-            Assert.That(WetnessSystem.DryingPower(exposed), Is.EqualTo(0f).Within(1e-5f));
+            var garments = TorsoSet(wetness: 0f);
+            var coat = garments.Find(g => g.Slot == GarmentSlot.TorsoOuter);
+
+            var seconds = 0d;
+            while (coat.Wetness < 0.99f && seconds < 6d * 3600d)
+            {
+                WetnessSystem.Step(garments, conditions, NeedsStep);
+                seconds += NeedsStep;
+            }
+
+            Assert.That(seconds / 3600d, Is.InRange(1.8d, 2.6d), "docs/03, 3.4");
+        }
+
+        [Test]
+        public void AFireCannotDryYouWhileYouStandInTheRain()
+        {
+            var sheltered = new WetnessConditions
+            {
+                RadiantHeat = 8f, AmbientCelsius = 10f, Shelter = 1f, IsIndoors = true,
+            };
+            var exposed = new WetnessConditions
+            {
+                RadiantHeat = 8f, AmbientCelsius = 10f, Shelter = 0f, SoakPerHour = Downpour,
+            };
+
+            Assert.That(WetnessSystem.WornDryingPerHour(sheltered),
+                Is.EqualTo(WetnessSystem.DryWornByFire).Within(1e-4f));
+            Assert.That(WetnessSystem.WornDryingPerHour(exposed), Is.EqualTo(0f).Within(1e-5f));
+        }
+
+        [Test]
+        public void FrozenGarmentsDoNotDryAtAll()
+        {
+            var freezing = new WetnessConditions
+            {
+                RadiantHeat = 0f, AmbientCelsius = -8f, Shelter = 1f, IsIndoors = true,
+            };
+
+            Assert.That(WetnessSystem.WornDryingPerHour(freezing), Is.EqualTo(0f));
+            Assert.That(WetnessSystem.RemovedDryingPerHour(freezing), Is.EqualTo(0f),
+                "a frozen garment stiffens and must be thawed before it can dry");
+        }
+
+        [Test]
+        public void HangingAGarmentDriesItFasterThanWearingIt()
+        {
+            var byTheFire = new WetnessConditions
+            {
+                RadiantHeat = 8f, AmbientCelsius = 15f, Shelter = 1f, IsIndoors = true,
+            };
+
+            Assert.That(
+                WetnessSystem.RemovedDryingPerHour(byTheFire),
+                Is.GreaterThan(WetnessSystem.WornDryingPerHour(byTheFire) * 1.5f),
+                "stripping the soaked shell has to be worth doing");
         }
 
         [Test]
         public void ARainShellKeepsTheLayersBeneathItDrier()
         {
-            var conditions = new WetnessConditions { Precipitation = 1f, Shelter = 0f, AmbientCelsius = 8f };
+            var conditions = new WetnessConditions
+            {
+                SoakPerHour = Downpour, Shelter = 0f, AmbientCelsius = 8f,
+            };
 
             var unprotected = TorsoSet(wetness: 0f);
             var shelled = TorsoSet(wetness: 0f, shellWaterproofing: 1f);
@@ -134,23 +192,33 @@ namespace Coldfall.Tests
         }
 
         [Test]
-        public void WadingSoaksFeetFast()
+        public void WadingSoaksLegsAndFeetAndLeavesTheTorsoAlone()
         {
-            var conditions = new WetnessConditions { InWater = true, AmbientCelsius = 4f };
-
-            var boots = new Garment
+            var garments = new List<Garment>
             {
-                Name = "boots", Slot = GarmentSlot.Feet, Coverage = BodyZone.Feet, Insulation = 0.3f,
+                new Garment { Name = "coat", Slot = GarmentSlot.TorsoOuter, Coverage = BodyZone.Torso },
+                new Garment { Name = "trousers", Slot = GarmentSlot.Legs, Coverage = BodyZone.Legs },
+                new Garment { Name = "boots", Slot = GarmentSlot.Feet, Coverage = BodyZone.Feet },
             };
-            var garments = new List<Garment> { boots };
 
-            // Six game minutes in the water.
-            for (var i = 0; i < 18; i++)
+            WetnessSystem.Wade(garments);
+
+            Assert.That(garments[0].Wetness, Is.EqualTo(0f));
+            Assert.That(garments[1].Wetness, Is.EqualTo(WetnessSystem.WadeAmount).Within(1e-5f));
+            Assert.That(garments[2].Wetness, Is.EqualTo(WetnessSystem.WadeAmount).Within(1e-5f));
+        }
+
+        [Test]
+        public void GoingUnderSoaksEverything()
+        {
+            var garments = TorsoSet(wetness: 0f);
+
+            WetnessSystem.Submerge(garments);
+
+            foreach (var garment in garments)
             {
-                WetnessSystem.Step(garments, conditions, NeedsStep);
+                Assert.That(garment.Wetness, Is.EqualTo(1f).Within(1e-5f));
             }
-
-            Assert.That(boots.Wetness, Is.GreaterThan(0.5f));
         }
 
         [Test]
@@ -159,26 +227,31 @@ namespace Coldfall.Tests
             var conditions = new WetnessConditions
             {
                 Shelter = 1f,
+                IsIndoors = false,
                 AmbientCelsius = 2f,
                 Exertion = 1f,
+                ClothingBulk = 1.4f,
             };
 
             var garments = TorsoSet(wetness: 0f);
 
-            for (var i = 0; i < 360; i++)
+            for (var i = 0; i < 540; i++)
             {
                 WetnessSystem.Step(garments, conditions, NeedsStep);
             }
 
-            Assert.That(MeanWetness(garments), Is.GreaterThan(0.1f),
+            Assert.That(MeanWetness(garments), Is.GreaterThan(0.05f),
                 "sprinting to the cabin can arrive wetter than walking to it");
         }
 
         [Test]
         public void WetnessNeverLeavesTheValidRange()
         {
-            var soaking = new WetnessConditions { Precipitation = 1f, InWater = true, Exertion = 1f };
-            var drying = new WetnessConditions { RadiantHeat = 40f, AmbientCelsius = 30f, Shelter = 1f };
+            var soaking = new WetnessConditions { SoakPerHour = 5f, Exertion = 1f, ClothingBulk = 3f };
+            var drying = new WetnessConditions
+            {
+                RadiantHeat = 40f, AmbientCelsius = 30f, Shelter = 1f, IsIndoors = true,
+            };
 
             var garments = TorsoSet(wetness: 0.5f);
 

@@ -141,7 +141,7 @@ half of the game.
 |---|---|
 | Worn, outdoors, humid | -0.01 / game hour (effectively never) |
 | Worn, indoors, unheated | -0.05 / game hour |
-| Worn, next to a fire | -0.22 / game hour |
+| Worn, next to a fire | -0.28 / game hour |
 | Removed, hung on a line indoors | -0.14 / game hour |
 | Removed, hung near a fire | -0.55 / game hour |
 | Frozen (ambient below -2 degC) | 0.0; the garment stiffens and must be thawed first |

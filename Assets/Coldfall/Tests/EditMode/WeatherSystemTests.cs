@@ -209,52 +209,40 @@ namespace Coldfall.Tests
             var rain = WeatherTable.For(WeatherState.Downpour);
             var snow = WeatherTable.For(WeatherState.Blizzard);
 
-            Assert.That(rain.PrecipitationIntensity, Is.EqualTo(snow.PrecipitationIntensity));
-
-            var weather = new WeatherSystem(worldSeed: 1u);
-            var rainWetness = Wetness(weather, WeatherState.Downpour);
-            var snowWetness = Wetness(weather, WeatherState.Blizzard);
-
-            Assert.That(snowWetness, Is.LessThan(rainWetness * 0.25f),
+            Assert.That(snow.PrecipitationIntensity, Is.EqualTo(rain.PrecipitationIntensity),
+                "both are falling as hard as weather gets");
+            Assert.That(snow.SoakPerHour, Is.LessThan(rain.SoakPerHour * 0.2f),
                 "dry snow brushes off; rain does not");
         }
 
         [Test]
-        public void WetSnowIsTheNastiestWinterState()
+        public void WetSnowSoaksMoreThanAnyOtherWinterState()
         {
-            var weather = new WeatherSystem(worldSeed: 1u);
+            var wetSnow = WeatherTable.For(WeatherState.WetSnow).SoakPerHour;
 
-            var wetSnow = Wetness(weather, WeatherState.WetSnow);
-            var heavySnow = Wetness(weather, WeatherState.HeavySnow);
+            foreach (var state in WeatherTable.Winter)
+            {
+                if (state == WeatherState.WetSnow)
+                {
+                    continue;
+                }
 
-            Assert.That(wetSnow, Is.GreaterThan(heavySnow),
-                "it soaks like rain and chills like snow");
+                Assert.That(WeatherTable.For(state).SoakPerHour, Is.LessThan(wetSnow),
+                    $"{state} should not soak more than wet snow");
+            }
         }
 
         [Test]
-        public void ShelterRemovesThePrecipitation()
+        public void TheWeatherSuppliesTheAuthoredSoakRate()
         {
             var weather = new WeatherSystem(worldSeed: 1u);
+
             var exposed = weather.WetnessFor(shelter: 0f);
             var sheltered = weather.WetnessFor(shelter: 1f);
 
+            Assert.That(exposed.SoakPerHour, Is.EqualTo(weather.Definition.SoakPerHour));
             Assert.That(sheltered.Shelter, Is.EqualTo(1f));
             Assert.That(exposed.Shelter, Is.EqualTo(0f));
-        }
-
-        private static float Wetness(WeatherSystem weather, WeatherState state)
-        {
-            // WetnessFor reads the current state, so drive the system to it by brute force
-            // rather than exposing a setter the game has no use for.
-            var definition = WeatherTable.For(state);
-            return definition.Precipitation switch
-            {
-                PrecipitationKind.Rain => definition.PrecipitationIntensity,
-                PrecipitationKind.WetSnow => definition.PrecipitationIntensity,
-                PrecipitationKind.DrySnow => definition.PrecipitationIntensity * 0.15f,
-                PrecipitationKind.Fog => definition.PrecipitationIntensity * 0.5f,
-                _ => 0f,
-            };
         }
     }
 }

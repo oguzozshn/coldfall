@@ -7,60 +7,93 @@ namespace Coldfall.Sim
     /// </summary>
     public struct WetnessConditions
     {
-        /// <summary>Rain or wet snow falling on the character, 0 to 1.</summary>
-        public float Precipitation;
+        /// <summary>
+        /// Wetness an exposed, unprotected garment would gain per game hour, from the weather
+        /// table. Authored per weather state in docs/03-survival-systems.md, 3.4.
+        /// </summary>
+        public float SoakPerHour;
 
         /// <summary>
-        /// How sheltered the character is from that precipitation, 0 to 1. A roof is 1, a tree
-        /// is partial, open ground is 0.
+        /// How sheltered the character is from that, 0 to 1. A roof is 1, a tree is partial,
+        /// open ground is 0.
         /// </summary>
         public float Shelter;
 
-        /// <summary>Radiant heat from a fire or heater, in the same units as the heat balance.</summary>
+        /// <summary>Radiant heat from a fire or heater, in heat-balance units.</summary>
         public float RadiantHeat;
 
         /// <summary>Air temperature at the character, in Celsius.</summary>
         public float AmbientCelsius;
 
-        /// <summary>
-        /// How hard the character is working, 0 to 1. Sweat wets clothing from the inside, which
-        /// is why sprinting to the cabin can arrive wetter than walking to it.
-        /// </summary>
+        /// <summary>True when under a roof, which dries slowly even with no fire.</summary>
+        public bool IsIndoors;
+
+        /// <summary>How hard the character is working, 0 to 1.</summary>
         public float Exertion;
 
-        /// <summary>Standing in water: a river crossing, a flooded underpass.</summary>
-        public bool InWater;
+        /// <summary>
+        /// Total bulk of what they are wearing. Sweat scales with it: the warmest loadout is
+        /// also the one that soaks itself from the inside on a hard climb.
+        /// </summary>
+        public float ClothingBulk;
     }
 
     /// <summary>
-    /// Wets and dries garments over time.
+    /// Wets and dries garments over time, from the authored tables in docs/03, 3.4.
     /// <para>
-    /// Separate from the heat balance on purpose. Wetness is a slow state that the balance
-    /// reads, not something the balance computes: a soaked coat is still soaked after the fire
-    /// goes out, and that persistence is what turns one careless river crossing into the rest
-    /// of the day.
+    /// Separate from the heat balance on purpose. Wetness is slow state that the balance reads,
+    /// not something the balance computes: a soaked coat is still soaked after the fire goes
+    /// out, and that persistence is what turns one careless river crossing into the rest of the
+    /// day.
     /// </para>
     /// <para>
-    /// Tuned to the M1 exit criteria: a soaked three-layer torso set dries in 2.5 to 4 game
-    /// hours next to a fire, and does not meaningfully dry outdoors in the rain.
+    /// Docs/03 calls drying the maintenance action players underestimate, and the numbers are
+    /// chosen to make that true: a soaked three-layer torso set takes most of an evening near a
+    /// fire, which is fuel the player then does not have for the night.
     /// </para>
     /// </summary>
     public static class WetnessSystem
     {
-        /// <summary>Wetness gained per game hour by an unprotected garment in full rain.</summary>
-        public const float SoakRatePerHour = 1.2f;
+        /// <summary>Wetness lost per game hour worn outdoors in humid air. Effectively never.</summary>
+        public const float DryWornOutdoors = 0.01f;
 
-        /// <summary>Wetness gained per game hour while standing in water. Fast and merciless.</summary>
-        public const float ImmersionRatePerHour = 6f;
+        /// <summary>Wetness lost per game hour worn indoors with no fire.</summary>
+        public const float DryWornIndoors = 0.05f;
 
-        /// <summary>Wetness gained per game hour from sweat at full exertion.</summary>
-        public const float SweatRatePerHour = 0.35f;
+        /// <summary>
+        /// Wetness lost per game hour worn next to a fire.
+        /// <para>
+        /// Docs/03, 3.4 prints 0.22, which dries a full soak in 4.5 game hours and misses the
+        /// 2.5-4 hour band that docs/10 sets as M1 exit criterion 3. The roadmap is the gate, so
+        /// the rate is 0.28 and doc 03 is corrected to match.
+        /// </para>
+        /// </summary>
+        public const float DryWornByFire = 0.28f;
 
-        /// <summary>Wetness lost per game hour at full drying power.</summary>
-        public const float DryRatePerHour = 0.30f;
+        /// <summary>Wetness lost per game hour hung up indoors, off the body.</summary>
+        public const float DryRemovedIndoors = 0.14f;
 
-        /// <summary>Radiant heat at which drying power is considered full.</summary>
+        /// <summary>Wetness lost per game hour hung near a fire, off the body.</summary>
+        public const float DryRemovedByFire = 0.55f;
+
+        /// <summary>Radiant heat at which drying is considered to be "next to a fire".</summary>
         public const float FullDryingRadiance = 8f;
+
+        /// <summary>
+        /// At or below this ambient temperature a wet garment freezes stiff instead of drying.
+        /// It must be thawed somewhere warm first, which is why hanging washing in an unheated
+        /// winter room does nothing at all.
+        /// </summary>
+        public const float FreezingCelsius = -2f;
+
+        /// <summary>Wetness gained per game hour from sweat at full exertion in bulky clothing.</summary>
+        public const float SweatPerHour = 0.15f;
+
+        /// <summary>Instant wetness added to legs and feet by wading shin deep.</summary>
+        public const float WadeAmount = 0.30f;
+
+        /// <summary>Instant wetness added to every layer by going fully under.</summary>
+        public const float SwimAmount = 1f;
 
         /// <summary>
         /// How much of the rain an outer layer keeps off the layers beneath it, before its own
@@ -73,57 +106,6 @@ namespace Coldfall.Sim
         /// Nothing is ever fully sealed, for the same reason insulation is capped below 1.
         /// </summary>
         public const float GapLeak = 0.08f;
-
-        /// <summary>
-        /// Advances every garment's wetness.
-        /// </summary>
-        /// <param name="garments">The worn set. Modified in place.</param>
-        /// <param name="conditions">The world around the character.</param>
-        /// <param name="gameSeconds">Tick length, from <see cref="SimClock"/>.</param>
-        public static void Step(
-            IReadOnlyList<Garment> garments, WetnessConditions conditions, double gameSeconds)
-        {
-            if (garments == null || gameSeconds <= 0d)
-            {
-                return;
-            }
-
-            var hours = (float)(gameSeconds / 3600d);
-            var exposure = Clamp01(conditions.Precipitation) * (1f - Clamp01(conditions.Shelter));
-            var drying = DryingPower(conditions);
-
-            foreach (var zone in BodyZones.All)
-            {
-                StepZone(garments, zone, exposure, drying, conditions, hours);
-            }
-        }
-
-        /// <summary>
-        /// Drying power, 0 to 1. A fire dominates it; still, warm air dries slowly on its own,
-        /// and cold air barely dries at all, which is why a wet coat left in an unheated room
-        /// overnight is still wet in the morning.
-        /// </summary>
-        public static float DryingPower(WetnessConditions conditions)
-        {
-            if (conditions.InWater)
-            {
-                return 0f;
-            }
-
-            var radiant = Clamp01(conditions.RadiantHeat / FullDryingRadiance);
-
-            // Air drying only becomes meaningful above about 10 degrees, and never reaches more
-            // than a fraction of what a fire does.
-            var air = Clamp01((conditions.AmbientCelsius - 10f) / 20f) * 0.35f;
-
-            var wetAir = Clamp01(conditions.Precipitation) * (1f - Clamp01(conditions.Shelter));
-            var power = radiant + air;
-
-            // Standing in the rain, nothing dries however warm the fire is at your back.
-            power *= 1f - wetAir;
-
-            return Clamp01(power);
-        }
 
         /// <summary>
         /// Slots from outermost inwards. Rain reaches layers in this order, so the list drives
@@ -142,9 +124,95 @@ namespace Coldfall.Sim
             GarmentSlot.Feet,
         };
 
+        /// <summary>Advances every worn garment's wetness.</summary>
+        /// <param name="garments">The worn set. Modified in place.</param>
+        /// <param name="conditions">The world around the character.</param>
+        /// <param name="gameSeconds">Tick length, from <see cref="SimClock"/>.</param>
+        public static void Step(
+            IReadOnlyList<Garment> garments, WetnessConditions conditions, double gameSeconds)
+        {
+            if (garments == null || gameSeconds <= 0d)
+            {
+                return;
+            }
+
+            var hours = (float)(gameSeconds / 3600d);
+            var exposure = 1f - Clamp01(conditions.Shelter);
+            var soak = conditions.SoakPerHour * exposure;
+            var drying = WornDryingPerHour(conditions);
+            var sweat = Clamp01(conditions.Exertion) * SweatPerHour
+                        * Clamp01(conditions.ClothingBulk / 2f + 0.3f);
+
+            foreach (var zone in BodyZones.All)
+            {
+                StepZone(garments, zone, soak, drying, sweat, hours);
+            }
+        }
+
+        /// <summary>
+        /// Dries a garment that is off the body, hung up. Much faster than wearing it, which is
+        /// what makes stripping the soaked shell and travelling cold-but-dry a real option.
+        /// </summary>
+        public static void DryRemoved(Garment garment, WetnessConditions conditions, double gameSeconds)
+        {
+            if (garment == null || gameSeconds <= 0d)
+            {
+                return;
+            }
+
+            var hours = (float)(gameSeconds / 3600d);
+            garment.Wetness = Clamp01(garment.Wetness - RemovedDryingPerHour(conditions) * hours);
+        }
+
+        /// <summary>Wades shin deep. Soaks legs and feet at once.</summary>
+        public static void Wade(IReadOnlyList<Garment> garments)
+        {
+            AddTo(garments, BodyZone.Legs | BodyZone.Feet, WadeAmount);
+        }
+
+        /// <summary>Goes fully under. Outside summer this is close to a death sentence.</summary>
+        public static void Submerge(IReadOnlyList<Garment> garments)
+        {
+            AddTo(garments, BodyZones.Everything, SwimAmount);
+        }
+
+        /// <summary>Wetness lost per game hour by a worn garment in these conditions.</summary>
+        public static float WornDryingPerHour(WetnessConditions conditions)
+        {
+            if (conditions.AmbientCelsius <= FreezingCelsius)
+            {
+                return 0f;
+            }
+
+            var fire = Clamp01(conditions.RadiantHeat / FullDryingRadiance);
+            var baseRate = conditions.IsIndoors ? DryWornIndoors : DryWornOutdoors;
+            var rate = baseRate + (DryWornByFire - baseRate) * fire;
+
+            // Standing in falling weather, nothing dries however good the fire at your back is,
+            // and partial shelter dries partially.
+            if (conditions.SoakPerHour <= 0f)
+            {
+                return rate;
+            }
+
+            return rate * Clamp01(conditions.Shelter);
+        }
+
+        /// <summary>Wetness lost per game hour by a garment hung up off the body.</summary>
+        public static float RemovedDryingPerHour(WetnessConditions conditions)
+        {
+            if (conditions.AmbientCelsius <= FreezingCelsius)
+            {
+                return 0f;
+            }
+
+            var fire = Clamp01(conditions.RadiantHeat / FullDryingRadiance);
+            return DryRemovedIndoors + (DryRemovedByFire - DryRemovedIndoors) * fire;
+        }
+
         private static void StepZone(
-            IReadOnlyList<Garment> garments, BodyZone zone, float exposure, float drying,
-            WetnessConditions conditions, float hours)
+            IReadOnlyList<Garment> garments, BodyZone zone,
+            float soakPerHour, float dryingPerHour, float sweatPerHour, float hours)
         {
             var remaining = 1f;
 
@@ -156,28 +224,34 @@ namespace Coldfall.Sim
                     continue;
                 }
 
-                var reaching = exposure * remaining;
-                var absorbed = reaching * (1f - Clamp01(garment.Waterproofing));
+                var waterproofing = Clamp01(garment.Waterproofing);
 
-                var gain = absorbed * SoakRatePerHour * hours;
+                var gain = soakPerHour * remaining * (1f - waterproofing) * hours
+                           + sweatPerHour * hours;
 
-                if (conditions.InWater && (zone == BodyZone.Feet || zone == BodyZone.Legs))
-                {
-                    gain += ImmersionRatePerHour * hours * (1f - Clamp01(garment.Waterproofing));
-                }
-
-                gain += Clamp01(conditions.Exertion) * SweatRatePerHour * hours;
-
-                var loss = drying * DryRatePerHour * hours;
+                var loss = dryingPerHour * hours;
 
                 garment.Wetness = Clamp01(garment.Wetness + gain - loss);
 
-                // What gets through this layer to the one beneath. A non-waterproof garment
-                // still blocks some rain by absorbing it; a waterproof shell blocks nearly all
-                // of it, and what gets past a good shell comes in at the neck and cuffs rather
-                // than through the fabric, which is what GapLeak stands for.
-                var waterproofing = Clamp01(garment.Waterproofing);
                 remaining *= (1f - waterproofing) * (1f - LayerShielding) + waterproofing * GapLeak;
+            }
+        }
+
+        private static void AddTo(IReadOnlyList<Garment> garments, BodyZone zones, float amount)
+        {
+            if (garments == null)
+            {
+                return;
+            }
+
+            foreach (var garment in garments)
+            {
+                if (garment == null || (garment.Coverage & zones) == 0)
+                {
+                    continue;
+                }
+
+                garment.Wetness = Clamp01(garment.Wetness + amount * (1f - Clamp01(garment.Waterproofing)));
             }
         }
 

@@ -87,8 +87,19 @@ namespace Coldfall.Sim
         /// <summary>What is falling.</summary>
         public PrecipitationKind Precipitation { get; }
 
-        /// <summary>How hard it is falling, 0 to 1.</summary>
+        /// <summary>How hard it is falling, 0 to 1. For visuals and audio, not for wetting.</summary>
         public float PrecipitationIntensity { get; }
+
+        /// <summary>
+        /// Wetness added per game hour to an exposed, unprotected garment, straight from the
+        /// authored table in docs/03-survival-systems.md, 3.4.
+        /// <para>
+        /// Authored per state rather than derived from intensity, because the two do not track
+        /// each other: a blizzard and a downpour are both intensity 1, and the blizzard wets at
+        /// a fifteenth of the rate. Dry snow brushes off.
+        /// </para>
+        /// </summary>
+        public float SoakPerHour { get; }
 
         /// <summary>True for the winter table.</summary>
         public bool IsWinter { get; }
@@ -96,7 +107,7 @@ namespace Coldfall.Sim
         /// <summary>Creates a row.</summary>
         public WeatherDefinition(
             float dayCelsius, float nightCelsius, float wind, float visibility,
-            PrecipitationKind precipitation, float intensity, bool isWinter)
+            PrecipitationKind precipitation, float intensity, float soakPerHour, bool isWinter)
         {
             DayCelsius = dayCelsius;
             NightCelsius = nightCelsius;
@@ -104,6 +115,7 @@ namespace Coldfall.Sim
             VisibilityMetres = visibility;
             Precipitation = precipitation;
             PrecipitationIntensity = intensity;
+            SoakPerHour = soakPerHour;
             IsWinter = isWinter;
         }
     }
@@ -124,23 +136,23 @@ namespace Coldfall.Sim
 
         private static readonly WeatherDefinition[] Definitions =
         {
-            // Autumn
-            new WeatherDefinition(11f, 3f, 8f, 400f, PrecipitationKind.None, 0f, false),
-            new WeatherDefinition(9f, 4f, 8f, 250f, PrecipitationKind.None, 0f, false),
-            new WeatherDefinition(7f, 3f, 9f, 180f, PrecipitationKind.Rain, 0.3f, false),
-            new WeatherDefinition(6f, 2f, 20f, 120f, PrecipitationKind.Rain, 0.65f, false),
-            new WeatherDefinition(5f, 2f, 38f, 60f, PrecipitationKind.Rain, 1f, false),
-            new WeatherDefinition(6f, 1f, 0f, 30f, PrecipitationKind.Fog, 0.25f, false),
-            new WeatherDefinition(2f, -4f, 20f, 300f, PrecipitationKind.None, 0f, false),
+            // Autumn. Soak rates from docs/03, 3.4.
+            new WeatherDefinition(11f, 3f, 8f, 400f, PrecipitationKind.None, 0f, 0f, false),
+            new WeatherDefinition(9f, 4f, 8f, 250f, PrecipitationKind.None, 0f, 0f, false),
+            new WeatherDefinition(7f, 3f, 9f, 180f, PrecipitationKind.Rain, 0.3f, 0.04f, false),
+            new WeatherDefinition(6f, 2f, 20f, 120f, PrecipitationKind.Rain, 0.65f, 0.18f, false),
+            new WeatherDefinition(5f, 2f, 38f, 60f, PrecipitationKind.Rain, 1f, 0.45f, false),
+            new WeatherDefinition(6f, 1f, 0f, 30f, PrecipitationKind.Fog, 0.25f, 0.02f, false),
+            new WeatherDefinition(2f, -4f, 20f, 300f, PrecipitationKind.None, 0f, 0f, false),
 
             // Winter
-            new WeatherDefinition(-6f, -16f, 8f, 450f, PrecipitationKind.None, 0f, true),
-            new WeatherDefinition(-3f, -9f, 8f, 250f, PrecipitationKind.None, 0f, true),
-            new WeatherDefinition(-4f, -11f, 20f, 120f, PrecipitationKind.DrySnow, 0.4f, true),
-            new WeatherDefinition(-1f, -4f, 20f, 100f, PrecipitationKind.WetSnow, 0.7f, true),
-            new WeatherDefinition(-8f, -15f, 38f, 50f, PrecipitationKind.DrySnow, 0.8f, true),
-            new WeatherDefinition(-14f, -22f, 70f, 15f, PrecipitationKind.DrySnow, 1f, true),
-            new WeatherDefinition(-5f, -12f, 0f, 30f, PrecipitationKind.Fog, 0.3f, true),
+            new WeatherDefinition(-6f, -16f, 8f, 450f, PrecipitationKind.None, 0f, 0f, true),
+            new WeatherDefinition(-3f, -9f, 8f, 250f, PrecipitationKind.None, 0f, 0f, true),
+            new WeatherDefinition(-4f, -11f, 20f, 120f, PrecipitationKind.DrySnow, 0.4f, 0.03f, true),
+            new WeatherDefinition(-1f, -4f, 20f, 100f, PrecipitationKind.WetSnow, 0.7f, 0.12f, true),
+            new WeatherDefinition(-8f, -15f, 38f, 50f, PrecipitationKind.DrySnow, 0.8f, 0.03f, true),
+            new WeatherDefinition(-14f, -22f, 70f, 15f, PrecipitationKind.DrySnow, 1f, 0.03f, true),
+            new WeatherDefinition(-5f, -12f, 0f, 30f, PrecipitationKind.Fog, 0.3f, 0.02f, true),
         };
 
         /// <summary>The authored row for a state.</summary>
