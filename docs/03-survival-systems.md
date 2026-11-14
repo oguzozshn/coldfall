@@ -33,7 +33,7 @@ does not change the balance. **All rates below are stated per game hour.**
 - Below 500 kcal, passive metabolic heat generation halves. **Starving makes you cold.**
 - Below 20% hydration, stamina regeneration halves.
 - Above 60% fatigue, maximum maintainable core temperature drops by 0.4 degC.
-- Wetness above 0.5 on the torso raises the convective loss term by up to 40% (see 3.3).
+- Wetness is the most dangerous state in the model: soaked clothing keeps 15% of its dry insulation, and evaporation from it becomes the largest loss term of all (see 3.3).
 - Fever from any illness raises core temperature, which the cold model reads as a buffer. A
   fevered character resists the cold slightly and is dying of something else.
 
@@ -60,8 +60,15 @@ nominally **3.5** for a 70 kg adult, so a net contribution of +3.5 raises core t
 | `H_radiant` | Fires, stoves, heaters | +1.0 to +14.0; inverse-square falloff, blocked by geometry |
 | `H_conductive` | Hot food and drink, heated interiors, bedding | +0.5 to +4.0 |
 | `L_convective` | Ambient delta and wind | The core term; formula below |
-| `L_evaporative` | Wetness and sweat | Scales `L_convective` by up to 1.4x at full wetness |
+| `L_evaporative` | Wetness and sweat | Scales `L_convective` by up to 1.6x at full wetness; the dominant term when soaked |
 | `L_respiratory` | Breathing cold air | -0.3 per 10 degC below freezing |
+
+**Calibration note.** An earlier draft put evaporation at +40% of convective loss. That figure
+cannot produce this document's own outcomes: at +40% the gap between soaked and dry is only about
+1.4x, and no convective scale satisfies both "soaked and idle reaches mild hypothermia in 20-35
+minutes" and "dry by a fire is safe" at the same time. Evaporation dominates when soaked, which
+is also the physically honest answer. `Coldfall.Sim` holds the authoritative constants and they
+are covered by tests.
 
 ### Convective loss and insulation
 
