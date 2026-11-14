@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.IO;
 using Coldfall.Player;
+using Coldfall.Sim;
 using Coldfall.World;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -53,6 +54,7 @@ namespace Coldfall.Editor.Setup
             CreateBasement(structure);
             CreateMeleeTargets(prop);
             CreateSimClockHost();
+            CreateThermalVolumes();
             CreatePlayer(prop);
 
             EditorSceneManager.MarkSceneDirty(scene);
@@ -229,6 +231,70 @@ namespace Coldfall.Editor.Setup
         {
             var host = new GameObject("SimClock");
             host.AddComponent<SimClockHost>();
+            host.AddComponent<WeatherHost>();
+            host.AddComponent<ThermalWorld>();
+        }
+
+        /// <summary>
+        /// Boxes the greybox interiors so the player can feel the difference between inside and
+        /// out. The front room has a lit stove, the back window starts broken, and the interior
+        /// doorway stands open: between them the three portal states that matter are all
+        /// reachable without an interaction system.
+        /// </summary>
+        private static void CreateThermalVolumes()
+        {
+            var root = new GameObject("ThermalVolumes");
+
+            var front = Volume(
+                root, "Room_House_Front", new Vector3(0f, 1.4f, -13.25f),
+                new Vector3(9.5f, 2.8f, 5.3f), insulation: 0.80f, wind: 0f, heat: 250f, start: 14f);
+
+            var back = Volume(
+                root, "Room_House_Back", new Vector3(0f, 1.4f, -9.25f),
+                new Vector3(9.5f, 2.8f, 2.3f), insulation: 0.75f, wind: 0.2f, heat: 0f, start: 9f);
+
+            var basement = Volume(
+                root, "Room_Basement", new Vector3(14f, -1.3f, -12f),
+                new Vector3(7.5f, 2.6f, 7.5f), insulation: 0.88f, wind: 0f, heat: 0f, start: 9f);
+
+            // Front door: the loud entry, and the fastest way to lose the room's heat.
+            Portal(root, "Portal_FrontDoor", new Vector3(-0.45f, 1.25f, -16f),
+                front, null, area: 1.9f, state: PortalState.Closed);
+
+            // Back window: starts broken on purpose, so boarding it is the first time the
+            // player sees a defensive verb change the temperature.
+            Portal(root, "Portal_BackWindow", new Vector3(0f, 1.5f, -8f),
+                back, null, area: 1.0f, state: PortalState.Broken);
+
+            Portal(root, "Portal_InteriorDoor", new Vector3(-1f, 1.4f, -10.5f),
+                front, back, area: 1.8f, state: PortalState.Open);
+
+            Portal(root, "Portal_BasementHatch", new Vector3(14f, 0f, -15.5f),
+                basement, null, area: 1.2f, state: PortalState.Open);
+        }
+
+        private static ThermalVolumeComponent Volume(
+            GameObject root, string name, Vector3 centre, Vector3 size,
+            float insulation, float wind, float heat, float start)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(root.transform, worldPositionStays: true);
+            go.transform.position = centre;
+
+            var volume = go.AddComponent<ThermalVolumeComponent>();
+            volume.Configure(size, insulation, wind, heat, start);
+            return volume;
+        }
+
+        private static void Portal(
+            GameObject root, string name, Vector3 position,
+            ThermalVolumeComponent a, ThermalVolumeComponent b, float area, PortalState state)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(root.transform, worldPositionStays: true);
+            go.transform.position = position;
+
+            go.AddComponent<ThermalPortalComponent>().Configure(a, b, area, state);
         }
 
         /// <summary>
@@ -302,6 +368,9 @@ namespace Coldfall.Editor.Setup
             // Without this the blade's own collider is the first thing the trace finds, and
             // every swing reads as having clipped the world.
             Object.DestroyImmediate(weapon.GetComponent<Collider>());
+
+            body.AddComponent<SurvivalCharacter>();
+            body.AddComponent<SurvivalDebugReadout>();
 
             var melee = body.AddComponent<MeleeSwing>();
             var meleeSerialized = new SerializedObject(melee);
