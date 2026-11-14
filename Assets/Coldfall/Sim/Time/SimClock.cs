@@ -77,6 +77,9 @@ namespace Coldfall.Sim
         private double _needsAccumulator;
         private double _bodyAccumulator;
         private double _worldAccumulator;
+        private long _needsTicks;
+        private long _bodyTicks;
+        private long _worldTicks;
 
         /// <summary>
         /// Raised once per needs step. The argument is the step length in game seconds, which is
@@ -99,6 +102,20 @@ namespace Coldfall.Sim
 
         /// <summary>Total game time elapsed since the run began, in game hours.</summary>
         public double ElapsedGameHours => _elapsedGameSeconds / SecondsPerHour;
+
+        /// <summary>
+        /// Needs ticks fired since the run began. Exposed because the ratio between these three
+        /// counters is the invariant the whole clock exists to guarantee: exactly 180, 36 and 60
+        /// per game hour, whatever the time scale and frame rate. A debug tool that shows them
+        /// drifting is showing a real bug.
+        /// </summary>
+        public long NeedsTickCount => _needsTicks;
+
+        /// <summary>Body ticks fired since the run began.</summary>
+        public long BodyTickCount => _bodyTicks;
+
+        /// <summary>World ticks fired since the run began.</summary>
+        public long WorldTickCount => _worldTicks;
 
         /// <summary>
         /// Game seconds that pass per real second. The 1:20 default means one real minute is
@@ -185,9 +202,9 @@ namespace Coldfall.Sim
             _bodyAccumulator += gameDeltaSeconds;
             _worldAccumulator += gameDeltaSeconds;
 
-            Drain(ref _needsAccumulator, NeedsStepGameSeconds, NeedsTick);
-            Drain(ref _bodyAccumulator, BodyStepGameSeconds, BodyTick);
-            Drain(ref _worldAccumulator, WorldStepGameSeconds, WorldTick);
+            Drain(ref _needsAccumulator, NeedsStepGameSeconds, NeedsTick, ref _needsTicks);
+            Drain(ref _bodyAccumulator, BodyStepGameSeconds, BodyTick, ref _bodyTicks);
+            Drain(ref _worldAccumulator, WorldStepGameSeconds, WorldTick, ref _worldTicks);
         }
 
         /// <summary>
@@ -200,15 +217,19 @@ namespace Coldfall.Sim
             _needsAccumulator = 0.0;
             _bodyAccumulator = 0.0;
             _worldAccumulator = 0.0;
+            _needsTicks = 0;
+            _bodyTicks = 0;
+            _worldTicks = 0;
         }
 
-        private static void Drain(ref double accumulator, double step, Action<double> handler)
+        private static void Drain(ref double accumulator, double step, Action<double> handler, ref long counter)
         {
             var fired = 0;
             while (accumulator >= step)
             {
                 accumulator -= step;
                 fired++;
+                counter++;
 
                 handler?.Invoke(step);
 
