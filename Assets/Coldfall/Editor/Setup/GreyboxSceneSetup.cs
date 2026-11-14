@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.IO;
 using Coldfall.Player;
-using Coldfall.World.Time;
+using Coldfall.World;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -51,8 +51,9 @@ namespace Coldfall.Editor.Setup
             CreateVaultFence(prop);
             CreateHouse(structure);
             CreateBasement(structure);
+            CreateMeleeTargets(prop);
             CreateSimClockHost();
-            CreatePlayer();
+            CreatePlayer(prop);
 
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene, ScenePath);
@@ -231,10 +232,40 @@ namespace Coldfall.Editor.Setup
         }
 
         /// <summary>
+        /// Posts that count as legitimate melee targets. Three stand in the open, and one stands
+        /// just inside the front doorway on purpose: swinging at that one from outside is the
+        /// test for M0 exit criterion 2, because a full-charge swing there should clip the frame.
+        /// </summary>
+        private static void CreateMeleeTargets(Material material)
+        {
+            var root = new GameObject("MeleeTargets");
+
+            var placements = new[]
+            {
+                new Vector3(-3f, 0f, 7f),
+                new Vector3(0f, 0f, 8.5f),
+                new Vector3(2.5f, 0f, 7f),
+                // Inside the front doorway of the house: the clipping test.
+                new Vector3(-0.45f, 0f, -15.2f),
+            };
+
+            for (var i = 0; i < placements.Length; i++)
+            {
+                var post = Box(
+                    $"Target_{i:00}",
+                    placements[i] + new Vector3(0f, 0.9f, 0f),
+                    new Vector3(0.4f, 1.8f, 0.4f),
+                    material);
+                post.AddComponent<MeleeTarget>();
+                post.transform.SetParent(root.transform, worldPositionStays: true);
+            }
+        }
+
+        /// <summary>
         /// Creates the body and, as a sibling rather than a child, the camera rig. The separation
         /// is the whole reason the camera does not stutter; see FirstPersonController.
         /// </summary>
-        private static void CreatePlayer()
+        private static void CreatePlayer(Material weaponMaterial)
         {
             var body = new GameObject("Player");
             body.transform.position = new Vector3(0f, 0.1f, 0f);
@@ -261,6 +292,22 @@ namespace Coldfall.Editor.Setup
             var serialized = new SerializedObject(fps);
             serialized.FindProperty("cameraRig").objectReferenceValue = rig.transform;
             serialized.ApplyModifiedPropertiesWithoutUndo();
+
+            // The weapon hangs off the camera rig, so it follows the view rather than the body.
+            var weapon = Box("Weapon", Vector3.zero, new Vector3(0.07f, 0.07f, 0.8f), weaponMaterial);
+            weapon.transform.SetParent(rig.transform, worldPositionStays: false);
+            weapon.transform.localPosition = new Vector3(0.28f, -0.26f, 0.42f);
+            weapon.transform.localRotation = Quaternion.Euler(12f, -16f, 6f);
+
+            // Without this the blade's own collider is the first thing the trace finds, and
+            // every swing reads as having clipped the world.
+            Object.DestroyImmediate(weapon.GetComponent<Collider>());
+
+            var melee = body.AddComponent<MeleeSwing>();
+            var meleeSerialized = new SerializedObject(melee);
+            meleeSerialized.FindProperty("weapon").objectReferenceValue = weapon.transform;
+            meleeSerialized.FindProperty("controller").objectReferenceValue = fps;
+            meleeSerialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
         private static GameObject Box(string name, Vector3 centre, Vector3 size, Material material)

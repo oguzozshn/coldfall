@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
-using Coldfall.Sim.Time;
+using Coldfall.Sim;
 using NUnit.Framework;
 
-namespace Coldfall.Tests.Time
+namespace Coldfall.Tests
 {
     /// <summary>
     /// Guards the M0 exit criterion that changing the time scale changes no simulation outcome,

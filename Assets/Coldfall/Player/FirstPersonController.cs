@@ -71,6 +71,9 @@ namespace Coldfall.Player
         private Vector3 _currentPhysicsPosition;
         private float _lastFixedTime;
 
+        private Vector2 _viewPunch;
+        private Vector2 _viewPunchVelocity;
+
         private bool _isVaulting;
         private float _vaultElapsed;
         private Vector3 _vaultStart;
@@ -81,6 +84,24 @@ namespace Coldfall.Player
         /// hypothermia) apply their penalties here instead of changing the speed fields.
         /// </summary>
         public float SpeedMultiplier { get; set; } = 1f;
+
+        /// <summary>
+        /// Kicks the view by a pitch and yaw offset in degrees, which then springs back to zero.
+        /// <para>
+        /// This is the only impact feedback the greybox has: with no audio and no animation yet,
+        /// the difference between a clean swing and one that clipped a doorframe has to be felt
+        /// through the camera or it cannot be felt at all (M0 exit criterion 2).
+        /// </para>
+        /// <para>
+        /// The punch is an offset on top of the look angles, never a change to them, so a kick
+        /// can never steal the player's aim: when the spring settles, the view is exactly where
+        /// the player pointed it.
+        /// </para>
+        /// </summary>
+        public void AddViewPunch(float pitchDegrees, float yawDegrees)
+        {
+            _viewPunchVelocity += new Vector2(pitchDegrees, yawDegrees);
+        }
 
         /// <summary>True while a vault is playing. Movement input is ignored during it.</summary>
         public bool IsVaulting => _isVaulting;
@@ -359,6 +380,31 @@ namespace Coldfall.Player
             _controller.enabled = true;
         }
 
+        /// <summary>
+        /// A critically damped spring, so the kick returns to zero without oscillating. An
+        /// overshooting camera reads as a bug rather than as an impact.
+        /// </summary>
+        private void StepViewPunch(float delta)
+        {
+            if (delta <= 0f)
+            {
+                return;
+            }
+
+            const float stiffness = 180f;
+            const float damping = 22f;
+
+            var acceleration = -_viewPunch * stiffness - _viewPunchVelocity * damping;
+            _viewPunchVelocity += acceleration * delta;
+            _viewPunch += _viewPunchVelocity * delta;
+
+            if (_viewPunch.sqrMagnitude < 0.0001f && _viewPunchVelocity.sqrMagnitude < 0.0001f)
+            {
+                _viewPunch = Vector2.zero;
+                _viewPunchVelocity = Vector2.zero;
+            }
+        }
+
         private bool HasHeadroomToStand()
         {
             var feet = transform.position;
@@ -389,9 +435,11 @@ namespace Coldfall.Player
 
             var body = Vector3.Lerp(_previousPhysicsPosition, _currentPhysicsPosition, alpha);
 
+            StepViewPunch(Time.deltaTime);
+
             cameraRig.SetPositionAndRotation(
                 body + Vector3.up * _currentEyeHeight,
-                Quaternion.Euler(_pitch, _yaw, 0f));
+                Quaternion.Euler(_pitch + _viewPunch.x, _yaw + _viewPunch.y, 0f));
         }
     }
 }

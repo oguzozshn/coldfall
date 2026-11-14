@@ -66,6 +66,10 @@ namespace Coldfall.Player.Input
 
         public bool VaultPressed => Keyboard.current?.spaceKey.wasPressedThisFrame ?? false;
 
+        public bool AttackHeld => Mouse.current?.leftButton.isPressed ?? false;
+
+        public bool ShovePressed => Mouse.current?.rightButton.wasPressedThisFrame ?? false;
+
         public bool ReleaseCursorPressed => Keyboard.current?.escapeKey.wasPressedThisFrame ?? false;
 
         private static float Axis(bool positive, bool negative)

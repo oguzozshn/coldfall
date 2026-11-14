@@ -1,7 +1,9 @@
-using Coldfall.Sim.Time;
+using Coldfall.Sim;
 using UnityEngine;
 
-namespace Coldfall.World.Time
+// See the note in SimClock.cs: a namespace called Time would shadow UnityEngine.Time for the
+// whole assembly, so the folder keeps the name and the namespace does not.
+namespace Coldfall.World
 {
     /// <summary>
     /// The scene-side owner of the one <see cref="SimClock"/>. Lives in the bootstrap scene
@@ -66,7 +68,7 @@ namespace Coldfall.World.Time
             // unscaledDeltaTime on purpose: Unity's Time.timeScale is a debugging and
             // slow-motion tool, not this game's notion of time compression. Game time
             // compression lives in SimClock.TimeScale and nowhere else.
-            Clock?.AdvanceReal(UnityEngine.Time.unscaledDeltaTime);
+            Clock?.AdvanceReal(Time.unscaledDeltaTime);
         }
 
         private void OnValidate()

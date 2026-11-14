@@ -28,6 +28,15 @@ namespace Coldfall.Player.Input
         bool VaultPressed { get; }
 
         /// <summary>
+        /// True while the attack button is held. Melee is charge-and-release, so the hold is the
+        /// input and the release is the commitment; there is no "attack pressed" event.
+        /// </summary>
+        bool AttackHeld { get; }
+
+        /// <summary>True while the shove button is held. Shove is a tap, not a charge.</summary>
+        bool ShovePressed { get; }
+
+        /// <summary>
         /// True on the frame the player asked for the mouse cursor back. Not a game action: it
         /// exists so the editor stays usable while the view has the cursor captured.
         /// </summary>

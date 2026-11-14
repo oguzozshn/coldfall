@@ -1,6 +1,9 @@
 using System;
 
-namespace Coldfall.Sim.Time
+// Namespace deliberately does not follow the folder. A namespace called Time nested under
+// Coldfall.Sim shadows UnityEngine.Time for every file in Coldfall.Sim, so `Time.deltaTime`
+// stops compiling across the assembly. The folder keeps the name; the namespace does not.
+namespace Coldfall.Sim
 {
     /// <summary>
     /// Which of the three simulation ticks a handler is reacting to.
