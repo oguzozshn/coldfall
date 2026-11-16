@@ -40,6 +40,12 @@ namespace Coldfall.Sim
         /// why starving makes you cold rather than merely weak.
         /// </summary>
         public bool IsStarving;
+
+        /// <summary>
+        /// Insulation the bedding adds while asleep, 0 to 1, applied on top of clothing across
+        /// every zone. Zero when awake.
+        /// </summary>
+        public float BeddingInsulation;
     }
 
     /// <summary>
@@ -185,8 +191,18 @@ namespace Coldfall.Sim
                     gradient = 0f;
                 }
 
+                // Bedding layers on top of clothing with the same diminishing returns, and is
+                // subject to the same ceiling: a sleeping bag in a freezing room buys hours, not
+                // safety.
+                var bedding = Clamp01(conditions.BeddingInsulation);
+                var total = 1f - (1f - insulation.Insulation) * (1f - bedding);
+                if (total > ClothingInsulation.MaxInsulation)
+                {
+                    total = ClothingInsulation.MaxInsulation;
+                }
+
                 var weight = BodyZones.LossWeight(zone);
-                convective += gradient * (1f - insulation.Insulation) * weight;
+                convective += gradient * (1f - total) * weight;
                 wetnessWeighted += insulation.Wetness * weight;
             }
 
