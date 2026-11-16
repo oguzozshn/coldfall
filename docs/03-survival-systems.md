@@ -113,6 +113,38 @@ hands, reduced walk speed for feet. Rapid rewarming near a fire worsens it; slow
 not. Frostbite never fully heals and is one of the two permanent-scar systems (see 3.5) that
 make a long-lived character feel historical.
 
+### Heat sources
+
+| Source | Room power | Radiant at 1 m | Fuel per hour | Noise | Light | Smoke |
+|---|---|---|---|---|---|---|
+| Lighter / matches | 3 | 1.5 | - | 0 m | 2 m | No |
+| Campfire | 60 | 12 | 1.5 kg wood | 12 m | 18 m | **Yes** |
+| Fireplace | 75 | 10 | 1.2 kg wood | 8 m | 14 m | Chimney |
+| Wood stove | 90 | 8 | 0.9 kg wood | 6 m | 6 m | Chimney |
+| Gas heater | 70 | 7 | 0.25 canister | 10 m | 0 m | No |
+| Electric heater | 80 | 6 | Grid | 4 m | 2 m | No |
+
+**Room power** is in degree-cubic-metres per game minute and is divided by the room's volume, so
+the same stove that warms a bedroom barely touches the church (see [05](05-world-and-map.md),
+5.4). **Radiant** is in heat-balance units and falls off as one over distance squared, which is
+what makes sitting at the fire a place rather than a room-wide buff, and what makes an outdoor
+campfire warm the person at it rather than the valley around it. Radiant heat does not pass
+through walls.
+
+The ordering is the fuel economy in one glance: the stove gives the most heat per kilogram, the
+campfire the least, and the campfire is also the loudest, the brightest and the only one that
+advertises itself as smoke from the lookout tower. A player who gets a stove working has solved
+winter. A player cooking on an open fire outdoors is paying three times over.
+
+**Damp wood** gives 60% of the heat for the same weight and burns just as fast, so the autumn
+player burns more of it to get less. This is what [3.8](#38-weather-season-and-shelter) means by
+firewood being damp in autumn and demand roughly doubling in winter: the first is a quality
+problem, the second a quantity one.
+
+**A night costs about 7.2 kg** of stove wood at the eight-hour night of
+[02](02-core-loop.md), 2.4. Drying a soaked three-layer set is another three and a half hours of
+the same fire. The honest consequence of a rainy expedition is paid in wood.
+
 ## 3.4 Wetness — full depth
 
 Wetness is tracked **per garment**, plus a skin wetness value for the body underneath.

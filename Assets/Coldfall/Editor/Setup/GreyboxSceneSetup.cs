@@ -245,9 +245,10 @@ namespace Coldfall.Editor.Setup
         {
             var root = new GameObject("ThermalVolumes");
 
+            // Heat comes from the stove below, not from the room itself.
             var front = Volume(
                 root, "Room_House_Front", new Vector3(0f, 1.4f, -13.25f),
-                new Vector3(9.5f, 2.8f, 5.3f), insulation: 0.80f, wind: 0f, heat: 250f, start: 14f);
+                new Vector3(9.5f, 2.8f, 5.3f), insulation: 0.80f, wind: 0f, heat: 0f, start: 9f);
 
             var back = Volume(
                 root, "Room_House_Back", new Vector3(0f, 1.4f, -9.25f),
@@ -271,6 +272,28 @@ namespace Coldfall.Editor.Setup
 
             Portal(root, "Portal_BasementHatch", new Vector3(14f, 0f, -15.5f),
                 basement, null, area: 1.2f, state: PortalState.Open);
+
+            // A stove against the back wall of the front room, lit, with a day and a half of
+            // dry wood. Walking up to it and away from it is the point: radiant heat falls off
+            // with distance, so the warm corner is a place rather than a status.
+            Fire(root, "Stove", new Vector3(3.6f, 0.5f, -15.2f),
+                HeatSourceKind.WoodStove, fuel: 30f, lit: true, dryness: 1f, room: front);
+
+            // An outdoor campfire near the spawn, burning damp autumn wood. It heats no room at
+            // all; everything it gives comes from standing close to it.
+            Fire(root, "Campfire", new Vector3(4f, 0.3f, 2f),
+                HeatSourceKind.Campfire, fuel: 8f, lit: true, dryness: 0.45f, room: null);
+        }
+
+        private static void Fire(
+            GameObject root, string name, Vector3 position, HeatSourceKind kind,
+            float fuel, bool lit, float dryness, ThermalVolumeComponent room)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(root.transform, worldPositionStays: true);
+            go.transform.position = position;
+
+            go.AddComponent<FireComponent>().Configure(kind, fuel, lit, dryness, room);
         }
 
         private static ThermalVolumeComponent Volume(

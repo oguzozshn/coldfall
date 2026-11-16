@@ -20,8 +20,6 @@ namespace Coldfall.Player
         [Tooltip("Start in the winter set instead of the deliberately insufficient starting one.")]
         [SerializeField] private bool startInWinterClothing;
 
-        [Tooltip("Radiant heat credited when standing in a room with a lit heat source.")]
-        [SerializeField] private float radiantHeatNearFire = 9f;
 
         private FirstPersonController _controller;
         private SimClock _clock;
@@ -150,13 +148,24 @@ namespace Coldfall.Player
                 var room = thermal.RoomAt(position);
                 IsIndoors = room != null;
                 AmbientCelsius = room != null ? room.Celsius : thermal.OutdoorCelsius;
-                RadiantHeat = room != null && room.HeatInput > 0f ? radiantHeatNearFire : 0f;
             }
             else
             {
                 IsIndoors = false;
                 AmbientCelsius = weather?.AmbientCelsius ?? 8f;
-                RadiantHeat = 0f;
+            }
+
+            // Summed over every lit fire by distance, so sitting at the fire and standing across
+            // the room are different things, and a campfire warms the person at it rather than
+            // the valley around it.
+            RadiantHeat = 0f;
+            for (var i = 0; i < FireComponent.Active.Count; i++)
+            {
+                var fire = FireComponent.Active[i];
+                if (fire != null)
+                {
+                    RadiantHeat += fire.RadiantAt(position);
+                }
             }
 
             var outdoorWind = weather?.WindKilometresPerHour ?? 0f;
