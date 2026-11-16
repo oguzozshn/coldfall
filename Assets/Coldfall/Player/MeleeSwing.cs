@@ -99,6 +99,7 @@ namespace Coldfall.Player
         [SerializeField] private float clipPunch = 6.5f;
 
         private IPlayerInput _input;
+        private ConditionCardView _card;
         private SwingState _state = SwingState.Ready;
         private float _charge;
         private float _swingElapsed;
@@ -130,6 +131,7 @@ namespace Coldfall.Player
         {
             _input ??= new DeviceInput();
             controller ??= GetComponent<FirstPersonController>();
+            _card = GetComponent<ConditionCardView>();
 
             if (weapon != null)
             {
@@ -198,7 +200,15 @@ namespace Coldfall.Player
 
         private bool IsBlocked()
         {
-            return controller != null && controller.IsVaulting;
+            if (controller != null && controller.IsVaulting)
+            {
+                return true;
+            }
+
+            // Reading the condition card occupies the hands. Docs/08, 8.5 makes that the whole
+            // reason the card can be an explicit status screen without spoiling anything: it
+            // cannot be read mid-fight.
+            return _card != null && _card.OccupiesHands;
         }
 
         private void BeginSwing()

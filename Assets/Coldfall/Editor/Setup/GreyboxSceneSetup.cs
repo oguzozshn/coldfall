@@ -393,7 +393,9 @@ namespace Coldfall.Editor.Setup
             Object.DestroyImmediate(weapon.GetComponent<Collider>());
 
             body.AddComponent<SurvivalCharacter>();
+            body.AddComponent<ConditionCardView>();
             body.AddComponent<SurvivalDebugReadout>();
+            rig.AddComponent<Coldfall.Presentation.ConditionScreenEffects>();
 
             var melee = body.AddComponent<MeleeSwing>();
             var meleeSerialized = new SerializedObject(melee);

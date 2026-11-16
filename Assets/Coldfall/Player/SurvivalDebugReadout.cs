@@ -18,7 +18,8 @@ namespace Coldfall.Player
     [RequireComponent(typeof(SurvivalCharacter))]
     public sealed class SurvivalDebugReadout : MonoBehaviour
     {
-        [SerializeField] private bool visible = true;
+        [Tooltip("Off by default now that the condition card exists. F1 brings it back for tuning.")]
+        [SerializeField] private bool visible;
 
         private SurvivalCharacter _character;
         private GUIStyle _style;
