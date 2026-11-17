@@ -30,6 +30,15 @@ namespace Coldfall.Player
         /// <summary>Calories, hydration and fatigue.</summary>
         public SurvivalNeeds Needs { get; } = new SurvivalNeeds();
 
+        /// <summary>Wounds, blood and the bacterial infection load.</summary>
+        public Body Body { get; } = new Body();
+
+        /// <summary>Active illnesses.</summary>
+        public Illnesses Illnesses { get; } = new Illnesses();
+
+        /// <summary>Mean wetness on the feet, which is what gives the character trench foot.</summary>
+        public float FeetWetness => ClothingInsulation.ForZone(Garments, BodyZone.Feet).Wetness;
+
         /// <summary>What they are wearing.</summary>
         public List<Garment> Garments { get; private set; }
 
@@ -118,6 +127,7 @@ namespace Coldfall.Player
 
             _clock = clock;
             _clock.NeedsTick += OnNeedsTick;
+            _clock.BodyTick += OnBodyTick;
             _clock.WorldTick += OnWorldTick;
         }
 
@@ -129,6 +139,7 @@ namespace Coldfall.Player
             }
 
             _clock.NeedsTick -= OnNeedsTick;
+            _clock.BodyTick -= OnBodyTick;
             _clock.WorldTick -= OnWorldTick;
             _clock = null;
         }
@@ -194,7 +205,29 @@ namespace Coldfall.Player
                 // calorie cost and the heat it buys can never disagree.
                 IsShivering = Core.LastBalance.Shivering > 0f,
                 IsAsleep = false,
+                HydrationDrainMultiplier = Illnesses.HydrationDrainMultiplier,
             });
+
+            // Wounds and illness reach the character through how fast they can move. Nothing
+            // tells the player a number; they simply find the hill harder than it was.
+            if (_controller != null)
+            {
+                _controller.SpeedMultiplier = Body.MovementMultiplier;
+            }
+        }
+
+        private void OnBodyTick(double gameSeconds)
+        {
+            Body.Step(gameSeconds, FeetWetness);
+            Illnesses.Step(gameSeconds, Core.Celsius, MeanWetness);
+
+            // A wound left dirty long enough stops being a wound and becomes an illness.
+            if (Body.HasFever && !Illnesses.Has(IllnessKind.WoundInfection))
+            {
+                Illnesses.Catch(IllnessKind.WoundInfection);
+            }
+
+            Body.OnAntibiotics = Illnesses.OnAntibiotics;
         }
 
         private void OnWorldTick(double gameSeconds)

@@ -17,6 +17,12 @@ namespace Coldfall.Sim
 
         /// <summary>True while asleep. Fatigue falls, everything else slows.</summary>
         public bool IsAsleep;
+
+        /// <summary>
+        /// Multiplier on hydration drain from illness. Dysentery triples it, which is how an
+        /// afternoon of bad water becomes two days of hunting for more.
+        /// </summary>
+        public float HydrationDrainMultiplier;
     }
 
     /// <summary>
@@ -139,18 +145,23 @@ namespace Coldfall.Sim
         /// <summary>Hydration percentage points lost per game hour.</summary>
         public static float WaterLossPerHour(NeedsContext context)
         {
-            if (context.IsAsleep)
-            {
-                return 1.5f;
-            }
+            var baseLoss = context.IsAsleep
+                ? 1.5f
+                : context.Activity switch
+                {
+                    ActivityLevel.Rest => 2.5f,
+                    ActivityLevel.Light => 4f,
+                    ActivityLevel.Hard => 7f,
+                    _ => 2.5f,
+                };
 
-            return context.Activity switch
-            {
-                ActivityLevel.Rest => 2.5f,
-                ActivityLevel.Light => 4f,
-                ActivityLevel.Hard => 7f,
-                _ => 2.5f,
-            };
+            // Defaults to 1 when the caller leaves it at zero, so existing callers and saves
+            // behave as they did before illness existed.
+            var multiplier = context.HydrationDrainMultiplier <= 0f
+                ? 1f
+                : context.HydrationDrainMultiplier;
+
+            return baseLoss * multiplier;
         }
 
         /// <summary>Fatigue percentage points gained per game hour. Negative while asleep.</summary>

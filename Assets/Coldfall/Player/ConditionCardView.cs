@@ -63,7 +63,8 @@ namespace Coldfall.Player
             if (_report == null || _refreshTimer <= 0f)
             {
                 _report = ConditionCard.Build(
-                    _character.Core, _character.Needs, _character.Garments, SimClockHost.Current);
+                    _character.Core, _character.Needs, _character.Garments, SimClockHost.Current,
+                    _character.Body, _character.Illnesses);
                 _refreshTimer = 1f;
             }
         }

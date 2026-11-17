@@ -28,6 +28,20 @@ namespace Coldfall.Sim
         public static ConditionReport Build(
             CoreTemperature core, SurvivalNeeds needs, IReadOnlyList<Garment> garments, SimClock clock)
         {
+            return Build(core, needs, garments, clock, body: null, illnesses: null);
+        }
+
+        /// <summary>Builds the card including wounds and illness.</summary>
+        /// <param name="core">Core temperature and its stage.</param>
+        /// <param name="needs">Calories, hydration and fatigue.</param>
+        /// <param name="garments">What they are wearing, for the wetness lines.</param>
+        /// <param name="clock">For the timestamp at the top of the card.</param>
+        /// <param name="body">Wounds, bleeding and blood loss. May be null.</param>
+        /// <param name="illnesses">Active illnesses. May be null.</param>
+        public static ConditionReport Build(
+            CoreTemperature core, SurvivalNeeds needs, IReadOnlyList<Garment> garments,
+            SimClock clock, Body body, Illnesses illnesses)
+        {
             var report = new ConditionReport
             {
                 Timestamp = Timestamp(clock),
@@ -52,6 +66,16 @@ namespace Coldfall.Sim
                 bodyWords.Add("weak with hunger");
             }
 
+            if (body != null && body.Blood < 70f)
+            {
+                bodyWords.Add(body.Blood < 45f ? "grey and faint" : "light-headed");
+            }
+
+            if (illnesses != null && illnesses.HasFever || body != null && body.HasFever)
+            {
+                bodyWords.Add("feverish");
+            }
+
             if (bodyWords.Count == 0)
             {
                 bodyWords.Add("fine");
@@ -60,10 +84,14 @@ namespace Coldfall.Sim
             report.Body.Add(new ConditionLine(
                 "Body", bodyWords, core.Stage >= HypothermiaStage.Mild));
 
+            AddWounds(report, body);
+
             AddWetZone(report, garments, BodyZone.Torso, "Torso");
             AddWetZone(report, garments, BodyZone.Hands, "Hands");
             AddWetZone(report, garments, BodyZone.Legs, "Legs");
             AddWetZone(report, garments, BodyZone.Feet, "Feet");
+
+            AddIllnesses(report, illnesses);
 
             report.Needs.Add(new ConditionLine(
                 "Hunger", new[] { HungerWord(needs.Calories) }, needs.IsStarving));
@@ -72,7 +100,7 @@ namespace Coldfall.Sim
             report.Needs.Add(new ConditionLine(
                 "Rest", new[] { restWord }, needs.FatiguePercent >= 80f));
 
-            report.MostUrgent = MostUrgent(core, needs);
+            report.MostUrgent = MostUrgent(core, needs, body, illnesses);
             return report;
         }
 
@@ -85,6 +113,45 @@ namespace Coldfall.Sim
         /// </para>
         /// </summary>
         public static string MostUrgent(CoreTemperature core, SurvivalNeeds needs)
+        {
+            return MostUrgent(core, needs, body: null, illnesses: null);
+        }
+
+        /// <summary>
+        /// The most pressing problem including wounds and illness.
+        /// <para>
+        /// Bleeding comes first, above everything. A serious bleed kills inside the hour while
+        /// hypothermia takes most of one and thirst takes eight, so a card that led with the
+        /// cold while the character emptied onto the floor would be worse than useless.
+        /// </para>
+        /// </summary>
+        public static string MostUrgent(
+            CoreTemperature core, SurvivalNeeds needs, Body body, Illnesses illnesses)
+        {
+            if (body != null && body.BleedPerHour > 0f)
+            {
+                // Anything that empties the character inside two hours is the only thing worth
+                // saying.
+                if (body.BleedPerHour >= 50f)
+                {
+                    return "bleeding badly";
+                }
+
+                if (body.Blood < 60f)
+                {
+                    return "still bleeding";
+                }
+            }
+
+            if (illnesses != null && illnesses.Has(IllnessKind.FungalInfection))
+            {
+                return "infected by the bite";
+            }
+
+            return MostUrgentWithoutInjury(core, needs);
+        }
+
+        private static string MostUrgentWithoutInjury(CoreTemperature core, SurvivalNeeds needs)
         {
             if (core.Stage >= HypothermiaStage.Moderate)
             {
@@ -206,6 +273,138 @@ namespace Coldfall.Sim
             }
 
             return wetness >= 0.15f ? "damp" : null;
+        }
+
+        /// <summary>
+        /// One line per hurt body part, in the words a person would use. A wound that is
+        /// bleeding says so first, because that is the thing that kills within the hour.
+        /// </summary>
+        private static void AddWounds(ConditionReport report, Body body)
+        {
+            if (body == null)
+            {
+                return;
+            }
+
+            foreach (BodyPart part in System.Enum.GetValues(typeof(BodyPart)))
+            {
+                var words = new List<string>();
+                var bleeding = false;
+
+                foreach (var wound in body.Wounds)
+                {
+                    if (wound.Part != part || wound.IsHealed)
+                    {
+                        continue;
+                    }
+
+                    if (wound.BleedPerHour > 0f)
+                    {
+                        bleeding = true;
+                    }
+
+                    words.Add(WoundWord(wound));
+                }
+
+                if (words.Count == 0)
+                {
+                    continue;
+                }
+
+                if (bleeding)
+                {
+                    words.Insert(0, "bleeding");
+                }
+
+                report.Body.Add(new ConditionLine(PartLabel(part), words, bleeding));
+            }
+        }
+
+        /// <summary>The words for one wound, including whether it has been seen to.</summary>
+        public static string WoundWord(Wound wound)
+        {
+            var noun = wound.Type switch
+            {
+                WoundType.Scratch => "scratched",
+                WoundType.Laceration => "cut open",
+                WoundType.DeepWound => "deep wound",
+                WoundType.Bite => "bitten",
+                WoundType.Fracture => "broken",
+                WoundType.Burn => "burned",
+                WoundType.Frostbite => "frostbitten",
+                WoundType.GlassShard => "glass in it",
+                WoundType.TrenchFoot => "sore and soft",
+                _ => "hurt",
+            };
+
+            if (wound.Type == WoundType.Fracture)
+            {
+                return wound.IsSplinted ? noun + " (splinted)" : noun;
+            }
+
+            if (wound.IsSutured)
+            {
+                return noun + " (stitched)";
+            }
+
+            if (wound.IsBandaged)
+            {
+                return noun + (wound.IsCleaned ? " (bandaged, clean)" : " (bandaged)");
+            }
+
+            return noun;
+        }
+
+        /// <summary>One line naming every active illness, in plain words.</summary>
+        private static void AddIllnesses(ConditionReport report, Illnesses illnesses)
+        {
+            if (illnesses == null || illnesses.Active.Count == 0)
+            {
+                return;
+            }
+
+            var words = new List<string>();
+            var serious = false;
+
+            foreach (var illness in illnesses.Active)
+            {
+                words.Add(IllnessWord(illness.Kind));
+
+                if (illness.Definition.IsTerminal)
+                {
+                    serious = true;
+                }
+            }
+
+            report.Body.Add(new ConditionLine("Illness", words, serious));
+        }
+
+        /// <summary>The word for an illness, as the character would describe it.</summary>
+        public static string IllnessWord(IllnessKind kind)
+        {
+            return kind switch
+            {
+                IllnessKind.ChestInfection => "a cough you cannot stop",
+                IllnessKind.FoodPoisoning => "guts churning",
+                IllnessKind.Dysentery => "the runs",
+                IllnessKind.WoundInfection => "a wound gone bad",
+                IllnessKind.FungalInfection => "something growing in you",
+                _ => "unwell",
+            };
+        }
+
+        private static string PartLabel(BodyPart part)
+        {
+            return part switch
+            {
+                BodyPart.Head => "Head",
+                BodyPart.Torso => "Torso",
+                BodyPart.LeftArm => "Left arm",
+                BodyPart.RightArm => "Right arm",
+                BodyPart.LeftLeg => "Left leg",
+                BodyPart.RightLeg => "Right leg",
+                _ => part.ToString(),
+            };
         }
 
         private static void AddWetZone(
