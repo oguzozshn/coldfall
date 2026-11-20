@@ -71,8 +71,11 @@ namespace Coldfall.Sim
         /// <param name="garments">What they are wearing.</param>
         public void Step(double gameSeconds, ThermalConditions conditions, IEnumerable<Garment> garments)
         {
-            if (gameSeconds <= 0d)
+            if (gameSeconds <= 0d || IsDead)
             {
+                // A corpse does not keep cooling in the simulation. Without this the integrator
+                // runs for as long as the save does, which a ten-day soak found as a core
+                // temperature of -1388 C.
                 return;
             }
 
@@ -85,6 +88,20 @@ namespace Coldfall.Sim
             if (next > MaxCelsius)
             {
                 next = MaxCelsius;
+            }
+
+            // A body cannot become colder than the air around it. The loss term is computed
+            // against a fixed skin target rather than against the current core, so without this
+            // floor a cooling body keeps losing heat at full rate no matter how cold it gets.
+            var floor = conditions.AmbientCelsius;
+            if (floor > Celsius)
+            {
+                floor = Celsius;
+            }
+
+            if (next < floor)
+            {
+                next = floor;
             }
 
             Celsius = next;
