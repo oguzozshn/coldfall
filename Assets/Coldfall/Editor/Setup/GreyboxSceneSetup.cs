@@ -396,6 +396,24 @@ namespace Coldfall.Editor.Setup
             body.AddComponent<ConditionCardView>();
             body.AddComponent<SurvivalDebugReadout>();
             rig.AddComponent<Coldfall.Presentation.ConditionScreenEffects>();
+            rig.AddComponent<Coldfall.Presentation.BreathAndLensEffects>();
+
+            // Placeholder hands. A box until someone models a pair; everything about how they
+            // should look lives in HandsState, so the mesh is the only thing that changes.
+            var hand = Box("HandPlaceholder", Vector3.zero, new Vector3(0.12f, 0.10f, 0.26f), weaponMaterial);
+            hand.transform.SetParent(rig.transform, worldPositionStays: false);
+            hand.transform.localPosition = new Vector3(0.28f, -0.42f, 0.35f);
+            hand.transform.localRotation = Quaternion.Euler(10f, -12f, 0f);
+            Object.DestroyImmediate(hand.GetComponent<Collider>());
+
+            var bandage = Box("Bandage", Vector3.zero, new Vector3(0.14f, 0.12f, 0.07f), weaponMaterial);
+            bandage.transform.SetParent(hand.transform, worldPositionStays: false);
+            bandage.transform.localPosition = new Vector3(0f, 0f, -0.35f);
+            Object.DestroyImmediate(bandage.GetComponent<Collider>());
+            bandage.SetActive(false);
+
+            body.AddComponent<HandsView>().Configure(
+                hand.transform, hand.GetComponent<MeshRenderer>(), bandage);
 
             var melee = body.AddComponent<MeleeSwing>();
             var meleeSerialized = new SerializedObject(melee);
