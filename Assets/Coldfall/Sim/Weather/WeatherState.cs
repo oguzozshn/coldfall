@@ -158,6 +158,38 @@ namespace Coldfall.Sim
         /// <summary>The authored row for a state.</summary>
         public static WeatherDefinition For(WeatherState state) => Definitions[(int)state];
 
+        /// <summary>
+        /// How well sound carries in this weather, from docs/04-zombies-and-combat.md, 4.3.
+        /// <para>
+        /// Rain is cover and fog is a trap. That single pair makes the autumn weather table a
+        /// stealth system as well as a survival one: the downpour that is soaking the player to
+        /// death is also the only thing letting them run, and the still fog that feels safe is
+        /// carrying their footsteps a quarter further than usual.
+        /// </para>
+        /// </summary>
+        public static float HearingModifier(WeatherState state)
+        {
+            return state switch
+            {
+                WeatherState.ClearCool => 1f,
+                WeatherState.Overcast => 1f,
+                WeatherState.Drizzle => 0.85f,
+                WeatherState.Rain => 0.7f,
+                WeatherState.Downpour => 0.5f,
+                WeatherState.RiverFog => 1.25f,
+                WeatherState.ColdSnap => 1f,
+
+                WeatherState.ClearCold => 1f,
+                WeatherState.OvercastCold => 1f,
+                WeatherState.LightSnow => 0.8f,
+                WeatherState.WetSnow => 0.8f,
+                WeatherState.HeavySnow => 0.6f,
+                WeatherState.Blizzard => 0.35f,
+                WeatherState.FreezingFog => 1.25f,
+                _ => 1f,
+            };
+        }
+
         /// <summary>Every autumn state.</summary>
         public static readonly WeatherState[] Autumn =
         {
